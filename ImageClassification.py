@@ -23,18 +23,24 @@ from torch.utils.data import Dataset,DataLoader
 import time
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
+import wandb
 
 
+wandb.init(project="CIFAR10", config={'batch_size': 512, 'learning_rate': 1e-2, 'epochs': 50})
+
+
+config = wandb.config
 train_transform = transforms.Compose([transforms.RandomHorizontalFlip(), transforms.ToTensor()])
 test_transform = transforms.Compose([transforms.ToTensor()])
 train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
-train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=64, shuffle=True)
+train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=config.batch_size, shuffle=True)
 test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
-test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=64, shuffle=False)
+test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=config.batch_size, shuffle=False)
+
 
 
 cfg = {
-    'VGG16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
+    'model': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
 }
 
 
@@ -46,6 +52,7 @@ class VGG(nn.Module):
 
     def forward(self, x):
         out = self.features(x)
+        #out = F.dropout(out, p=0.5)
         out = out.view(out.size(0), -1)
         out = self.classifier(out)
         return out
@@ -64,25 +71,25 @@ class VGG(nn.Module):
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         return nn.Sequential(*layers)
 
+
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-model = VGG('VGG16').to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 3, 4], gamma=0.5)
+model = VGG('model').to(device)
+optimizer = optim.Adam(model.parameters(), lr=config.learning_rate, weight_decay=0.01)
+# scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80], gamma=0.5)
 criterion = nn.CrossEntropyLoss().to(device)
 
-
-writer = SummaryWriter('logs')
 accuracy = 0
 acc = []
 los = []
 epochs = 10
-bar = tqdm(range(1, epochs + 1), desc='epochs')
-for epoch in bar:
+
+for epoch in range(config.epochs):
+    print('==> train')
     model.train()
     train_loss = 0
     train_correct = 0
     total = 0
-    for batch_num, (data, target) in enumerate(train_loader):
+    for batch_num, (data, target) in tqdm(enumerate(train_loader)):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
@@ -92,16 +99,10 @@ for epoch in bar:
         train_loss += loss.item()
         prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
         total += target.size(0)
-        # train_correct incremented by one if predicted right
         train_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
-    print(scheduler.get_last_lr())
-    scheduler.step()
+    #scheduler.step()
     train_result,train_acc = train_loss, train_correct / total
-    writer.add_scalar('train_loss', train_result, epoch)
-    writer.add_scalar('trian_accuracy', train_acc, epoch)
-    acc.append(train_acc)
-    los.append(train_result)
-    print("test:")
+    print("===> test")
     model.eval()
     test_loss = 0
     test_correct = 0
@@ -117,14 +118,12 @@ for epoch in bar:
             test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
 
     test_result = test_loss, test_correct / total
-
-    print("train loss=%.5f" % train_loss)
-    print("train accuracy=%.5f" % train_acc)
-    print("test loss=%.5f" % test_result[0])
-    print("test accuracy=%.5f" % test_result[1])
-    accuracy = max(accuracy, test_result[1])
-    writer.add_scalar('test_loss', test_loss, epoch)
-    writer.add_scalar('test_accuracy', accuracy, epoch)
+    # accuracy = max(accuracy, test_result[1])
+    wandb.log({'trian_loss': train_result,
+               'train_acc': train_acc,
+               'test_loss': test_loss,
+               'test_acc': test_result[1]
+               })
 
 
 

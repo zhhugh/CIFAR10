@@ -1,16 +1,16 @@
-# CIFAR10分类
+# CIFAR10 Classification
 
-本仓库介绍使用卷积神经网络对CIFAR10数据集进行图像分类，点击[CIFAR](https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz)可以下载数据集。
+This article introduces the use of convolutional neural networks to classify the CIFAR10 data set. Click [CIFAR](https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz) to download the data set . Finally, several sets of experiments were done to observe the influence of hyperparameters on training results.
 
-## Introduction
+## 1 Introduction
 
-使用卷积神经网络对CIFAR10做图像分类，调整超参数观察模型的效果，对实验结果做可视化展示。CIFAR-10是一个用于识别普适物体的小型数据集，它包含了10个类别的RGB彩色图片。
+This article uses convolutional neural network to classify CIFAR10 images, adjusts the effect of hyperparameter observation model, and visualizes the experimental results. CIFAR-10 is a small data set used to identify universal objects. It contains 10 categories of RGB color pictures.
 
-> 该数据集共有60000张彩色图像，这些图像是32*32，分为10个类，每类6000张图。这里面有50000张用于训练，构成了5个训练批，每一批10000张图；另外10000用于测试，单独构成一批。测试批的数据里，取自10类中的每一类，每一类随机取1000张。抽剩下的就随机排列组成了训练批。注意一个训练批中的各类图像并不一定数量相同，总的来看训练批，每一类都有5000张图。
+The data set has a total of 60,000 color images, these images are 32*32, divided into 10 categories, each category has 6000 images. There are 50,000 images used for training, forming 5 training batches, each batch of 10,000 images; the other 10,000 are used for testing, forming a single batch. In the data of the test batch, it is taken from each of the 10 categories, and 1000 pieces of each category are randomly selected. The rest is randomly arranged to form a training batch. Note that the number of images in a training batch is not necessarily the same. Looking at the training batch in general, there are 5000 images in each category.
 
-![mark](http://markdownsave.oss-cn-beijing.aliyuncs.com/markdown/20191223/194433582.png)
+<img src="http://markdownsave.oss-cn-beijing.aliyuncs.com/markdown/20191223/194433582.png" alt="mark" style="zoom:50%;" />
 
-## Installation
+## 2 Installation
 
 ### Requirements
 
@@ -23,8 +23,6 @@
 
 ### Pytorch
 
-官方链接：
-
 ```python
 git clone --recursive https://github.com/pytorch/pytorch
 ```
@@ -35,21 +33,18 @@ git clone --recursive https://github.com/pytorch/pytorch
 python ImageClassification.py
 ```
 
+## 3 build a CNN 
 
+### 3.1 Data processing
 
-## How to build a CNN 
+After downloading, place it in the data folder, or you can use your own data set.
 
-### 1. Data processing
+**Data preprocessing process**：
 
-下载完以后放在data文件夹里面，也可以用自己制作的数据集。
-
-数据预处理的流程：
-
-- 定义transforms，transforms.Compose()可以传入一个列表，该列表是数据增强的类实例，transforms.Compose()能够将这些数据增强的类组合，减少代码量。
-- 使用torch.datasets.CIFAR10加载数据集，并传入transform做数据增强
+- create transforms，transforms.Compose() can pass in a list, which is an instance of data-enhanced classes, transforms.Compose() can combine these data-enhanced classes to reduce the amount of code.
+- use torch.datasets.CIFAR10 to load the dataset for augmentation.
 
 ```python
-#数据预处理
 train_transform = transforms.Compose([transforms.RandomHorizontalFlip(), transforms.ToTensor()])
 test_transform = transforms.Compose([transforms.ToTensor()])
 train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
@@ -58,26 +53,19 @@ test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=Tru
 test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=64, shuffle=False)
 ```
 
-### 2. build network
+### 3.2 build network
 
-构建一个vgg的网络模型，vgg有好几个版本，这里我创建的是vgg16，这个网络用来提取图片的特征，然后把提取到的特征和连接到10个神经元，也就是分10类
+Build a convolutional neural network model, this network is used to extract the features of the picture, and then connect the extracted features to 10 neurons, which is divided into 10 categories.
 
 ```python
-self.classifier = nn.Linear(512, 10)
-```
-
-完整的构建网络的代码，用一个类来写。
-
-```
 cfg = {
-    'VGG16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
+    'model': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
 }
 class VGG(nn.Module):
-    #vgg_name = 'VGG16'
     def __init__(self, vgg_name):
         super(VGG, self).__init__()
         self.features = self._make_layers(cfg[vgg_name])
-        self.classifier = nn.Linear(512, 10)#输出10类别
+        self.classifier = nn.Linear(512, 10)
 
     def forward(self, x):
         out = self.features(x)
@@ -100,11 +88,9 @@ class VGG(nn.Module):
         return nn.Sequential(*layers)
 ```
 
-### 3. train
+### 3.3 train
 
-先实例化前面我们创建的模型，然后开出你的gpu或者cpu
-
-后面optimizer是定义一个优化器，scheduler可以动态调整学习率，criterion是定义损失函数，用的是交叉熵损失
+Init.
 
 ```
 model = VGG('VGG16').to(torch.device('cuda'))
@@ -114,13 +100,13 @@ scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[75, 150], gamm
 criterion = nn.CrossEntropyLoss().to(device)
 ```
 
-训练完了会保存一个模型文件，测试的时候就可以加载这个模型文件，就是代码里的这句
+Save model.
 
 ```
 torch.save(model, 'model.pkl')
 ```
 
-完整的训练代码
+Complete training code.
 
 ```python
 def train():
@@ -167,7 +153,7 @@ def train():
                 test_correct += np.sum(prediction[1].cpu().numpy() == target.cpu().numpy())
         test_result =  test_loss, test_correct / total
         test_los.append(test_result)
-        #画出损失曲线
+        #drow loss
         plt.figure(1)
         plt.subplot(211)
         plt.plot(train_los)
@@ -177,7 +163,7 @@ def train():
 
 ```
 
-### 4. Test
+### 3.4 Test
 
 ```python
 def test(min_num_image,max_num_image):
@@ -199,21 +185,37 @@ def test(min_num_image,max_num_image):
 
 
 
-## 5. Visualize
+## 3.5 Visualize
 
-使用tensorboard查看结果
+- using tensor board to visualize the results
 
 ```bash
 tensorboard --logdir=logs
 ```
 
-![image-20211018112924526](images/image-20211018112924526.png)
+<img src="images/image-20211018112924526.png" alt="image-20211018112924526" style="zoom: 50%;" />
 
+- using wandb to visualize the results
 
+<img src="images/image-20211114181728091.png" alt="image-20211114181728091" style="zoom:50%;" />
 
-## Experiments
+## 4 Experiments
 
-### 1. adjust learning
+### 4.1 adjust epochs
+
+Epochs: 10
+
+| <img src="images/image-20211114140415471.png" alt="image-20211114140415471" style="zoom:100%;" /> | ![image-20211114140521480](images/image-20211114140521480.png) |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+
+Epochs: 100
+
+| ![image-20211114140746975](images/image-20211114140746975.png) | ![image-20211114140807557](images/image-20211114140807557.png) |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+
+The epochs are too small and insufficient iteration on the training set will lead to underfitting, that is, the model does not work well on the training set.
+
+### 4.2 adjust learning rate 
 
 ![image-20211018125032836](images/image-20211018125032836.png)
 
@@ -223,8 +225,40 @@ tensorboard --logdir=logs
 
 <img src="images/image-20211018155931326.png" alt="image-20211018155931326" style="zoom:50%;" />
 
-实验结果如图所示，可以看到，初始学习率过大，会导致训练收敛比较慢，严重的甚至会导致无法收敛。
+![image-20211114161305630](images/image-20211114161305630.png)
+
+- Fluent-wave-10: Appropriate learning rate
+- Logical-microwave-9， restfulserenty-8: Learning rate is too high
+
+The learning rate determines the step size of the weight iterations and is therefore a very sensitive parameter, which affects the model performance in two ways, the first being the size of the initial learning rate and the second being the transformation scheme of the learning rate.
+
+The experimental results are shown in the figure. It can be seen that if the initial learning rate is too large, it will cause the training to converge slowly, or even lead to failure to converge. This may be because the learning rate is too large, causing the local pole to be skipped during the iteration. Small value point, or oscillating near the local minimum point.
 
 
 
-### 2.
+### 4.3 adjust Batch size
+
+- **online learning**：The error surface of a linear neuron in the mean square error cost function is a paraboloid with an elliptical cross section. For multilayer neurons, nonlinear networks, the local approximation is still parabolic. Using online learning, each correction direction is corrected in the direction of the gradient of the respective sample, and i**t is difficult to achieve convergence by ramparting each other**.
+
+<img src="images/image-20211114172109143.png" alt="image-20211114172109143" style="zoom: 33%;" />
+
+- **the benefits of increasing Batch_Size** 
+  - Memory utilization is improved, and parallelization of large matrix multiplication is made more efficient.
+  - The number of iterations required to run through an epoch (full data set) is reduced, and the processing speed for the same amount of data is further accelerated.
+  - Within a certain range, in general the larger the Batch_Size, the more accurate its determination of the direction of descent and the less training oscillation it causes.
+- the benefits of 
+
+### 4.4 dropout
+
+![image-20211114214439362](images/image-20211114214439362.png)
+
+After using dropout, the loss of the model on the training set drops relatively slowly, and the loss value on the training set will eventually be larger. Generally speaking, the performance of the two on the test set and training set is basically the same. It may be because the number of samples in the CIFAR10 data set is relatively large, and the difference between the test set and the training set and the test set is small, so dropout does not reflect its role.
+
+
+
+### 6. weight_decay of Regularization
+
+![image-20211114220941397](images/image-20211114220941397.png)In the loss function, the weight decay is a coefficient placed in front of the regularization term (regularization). The regularization term generally indicates the complexity of the model, so the role of the weight decay is to regulate the effect of model complexity on the loss function, and if the weight decay is large, the value of the loss function of the complex model is also large.
+
+It can be seen from the experimental results that weight_decay has a great influence on the effect of the model, and an unreasonable setting will lead to an unreasonable loss function, resulting in poor model effect.
+
