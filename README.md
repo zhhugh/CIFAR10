@@ -2,12 +2,6 @@
 
 本仓库介绍使用卷积神经网络对CIFAR10数据集进行图像分类，点击[CIFAR](https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz)可以下载数据集。
 
-
-
-# Table of contents
-
-[TOC]
-
 ## Introduction
 
 使用卷积神经网络对CIFAR10做图像分类，调整超参数观察模型的效果，对实验结果做可视化展示。CIFAR-10是一个用于识别普适物体的小型数据集，它包含了10个类别的RGB彩色图片。
@@ -43,9 +37,9 @@ python ImageClassification.py
 
 
 
-# How to build a CNN 
+## How to build a CNN 
 
-## 1.数据预处理
+### 1. Data processing
 
 下载完以后放在data文件夹里面，也可以用自己制作的数据集。
 
@@ -64,9 +58,7 @@ test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=Tru
 test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=64, shuffle=False)
 ```
 
-
-
-## 2.构建特征提取网络
+### 2. build network
 
 构建一个vgg的网络模型，vgg有好几个版本，这里我创建的是vgg16，这个网络用来提取图片的特征，然后把提取到的特征和连接到10个神经元，也就是分10类
 
@@ -108,9 +100,7 @@ class VGG(nn.Module):
         return nn.Sequential(*layers)
 ```
 
-
-
-## 3.训练网络
+### 3. train
 
 先实例化前面我们创建的模型，然后开出你的gpu或者cpu
 
@@ -187,11 +177,9 @@ def train():
 
 ```
 
+### 4. Test
 
-
-## 4.预测
-
-```
+```python
 def test(min_num_image,max_num_image):
     to_pil_image = transforms.ToPILImage()
     cnt = 0
@@ -211,7 +199,7 @@ def test(min_num_image,max_num_image):
 
 
 
-# Result
+## 5. Visualize
 
 使用tensorboard查看结果
 
@@ -223,7 +211,9 @@ tensorboard --logdir=logs
 
 
 
-## 初始学习率对训练的影响
+## Experiments
+
+### 1. adjust learning
 
 ![image-20211018125032836](images/image-20211018125032836.png)
 
@@ -234,3 +224,7 @@ tensorboard --logdir=logs
 <img src="images/image-20211018155931326.png" alt="image-20211018155931326" style="zoom:50%;" />
 
 实验结果如图所示，可以看到，初始学习率过大，会导致训练收敛比较慢，严重的甚至会导致无法收敛。
+
+
+
+### 2.
